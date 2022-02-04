@@ -2,7 +2,7 @@ import time
 from abc import abstractmethod
 from queue import Empty
 from threading import Lock
-
+import sys
 from libAnt.constants import MESSAGE_TX_SYNC
 from libAnt.loggers.logger import Logger
 from libAnt.message import Message
@@ -82,12 +82,13 @@ class Driver:
                 except IndexError:
                     raise Empty
 
-    def write(self, msg: Message) -> None:
+    def write(self, msg: Message, timeout=None) -> None:
         if not self.isOpen():
             raise DriverException("Device is closed")
 
+        print('Driver::write timeout: %s _lock: %s' % (timeout, self._lock), file=sys.stderr)
         with self._lock:
-            self._write(msg.encode())
+            self._write(msg.encode(), timeout=timeout)
 
     def abort(self) -> None:
         self._abort()

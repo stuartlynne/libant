@@ -1,9 +1,10 @@
 import threading
 from queue import Queue, Empty
 from time import sleep
+import sys
 
-from libAnt.drivers.driver import Driver
 from libAnt.message import *
+from libAnt.drivers.driver import Driver, DriverException
 
 
 class Network:
@@ -35,14 +36,20 @@ class Pump(threading.Thread):
         return self._stopper.isSet()
 
     def run(self):
+        print('Pump::run: started' , file=sys.stderr)
         while not self.stopped():
             try:
+                print('Pump::run: with _driver' , file=sys.stderr)
                 with self._driver as d:
                     # Startup
                     rst = SystemResetMessage()
+                    print('Pump::run: rst: %s' % (rst), file=sys.stderr)
                     self._waiters.append(rst)
-                    d.write(rst)
+                    print('Pump::run: calling write', file=sys.stderr)
+                    rc = d.write(rst, timeout=1000)
+                    print('Pump::run: rc: %s' % (rc), file=sys.stderr)
                     for m in self._initMessages:
+                        print('Pump::run: m: %s' % (m), file=sys.stderr)
                         self._waiters.append(m)
                         d.write(m)
 
@@ -53,12 +60,14 @@ class Pump(threading.Thread):
                             self._waiters.append(outMsg)
                             d.write(outMsg)
                         except Empty:
+                            print('Pump::run: Empty', file=sys.stderr)
                             pass
 
                         # Read
                         try:
                             msg = d.read(timeout=1)
                             if msg.type == MESSAGE_CHANNEL_EVENT:
+                                print('Pump::run: m: %s MESSAGE_CHANNEL_EVENT' % (msg), file=sys.stderr)
                                 # This is a response to our outgoing message
                                 for w in self._waiters:
                                     if w.type == msg.content[1]:  # ACK
@@ -66,13 +75,21 @@ class Pump(threading.Thread):
                                         #  TODO: Call waiter callback from tuple (waiter, callback)
                                         break
                             elif msg.type == MESSAGE_CHANNEL_BROADCAST_DATA:
+                                #print('Pump::run: m: %s MESSAGE_CHANNEL_BROADCAST_DATA' % (msg), file=sys.stderr)
                                 bmsg = BroadcastMessage(msg.type, msg.content).build(msg.content)
                                 self._onSuccess(bmsg)
                         except Empty:
                             pass
-            except Exception as e:
+            except DriverException as e:
+                print('Pump::run: driver exception e: %s ' %(e) , file=sys.stderr)
                 self._onFailure(e)
+                return
+            except Exception as e:
+                print('Pump::run: exception e: %s ' %(e) , file=sys.stderr)
+                #self._onFailure(e)
+                return
             except:
+                print('Pump::run: exception unknown: ' , file=sys.stderr)
                 pass
             self._waiters.clear()
             sleep(1)
@@ -80,12 +97,14 @@ class Pump(threading.Thread):
 
 class Node:
     def __init__(self, driver: Driver, name: str = None):
+        print('Node::__init__: name: %s' % (name), file=sys.stderr)
         self._driver = driver
         self._name = name
         self._out = Queue()
         self._init = []
         self._pump = None
         self._configMessages = Queue()
+        print('Node::__init__: finished' , file=sys.stderr)
 
     def __enter__(self):
         return self
@@ -94,12 +113,18 @@ class Node:
         self.stop()
 
     def start(self, onSuccess, onFailure):
+        print('Node::start: ', file=sys.stderr)
         if not self.isRunning():
+            print('Node::start call Pump : ', file=sys.stderr)
             self._pump = Pump(self._driver, self._init, self._out, onSuccess, onFailure)
+            print('Node::start Pump.start : ', file=sys.stderr)
             self._pump.start()
+            print('Node::start Pump.start finished: ', file=sys.stderr)
 
     def enableRxScanMode(self, networkKey=ANTPLUS_NETWORK_KEY, channelType=CHANNEL_TYPE_ONEWAY_RECEIVE,
                          frequency: int = 2457, rxTimestamp: bool = True, rssi: bool = True, channelId: bool = True):
+        self._init.append(SystemResetMessage())
+        self._init.append(SystemResetMessage())
         self._init.append(SystemResetMessage())
         self._init.append(SetNetworkKeyMessage(0, networkKey))
         self._init.append(AssignChannelMessage(0, channelType))
@@ -110,11 +135,13 @@ class Node:
         self._init.append(OpenRxScanModeMessage())
 
     def stop(self):
+        print('Pump::__init__: stop:' , file=sys.stderr)
         if self.isRunning():
             self._pump.stop()
             self._pump.join()
 
     def isRunning(self):
+        print('Pump::__init__: isRunning:' , file=sys.stderr)
         if self._pump is None:
             return False
         return self._pump.is_alive()

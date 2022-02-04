@@ -1,4 +1,5 @@
 from threading import Lock
+import sys
 
 from libAnt.message import BroadcastMessage
 from libAnt.profiles.power_profile import PowerProfileMessage
@@ -46,6 +47,7 @@ class Factory:
                     del self._filter[deviceNumber]
 
     def parseMessage(self, msg: BroadcastMessage):
+        print('Factory::parseMessage: msg: %s' % (msg), file=sys.stderr)
         with self._lock:
             if self._filter is not None:
                 if msg.deviceNumber not in self._filter:
@@ -57,6 +59,7 @@ class Factory:
                     if msg.content[0] != 16:
                         return
                 pmsg = self.types[type](msg, self._messages[(num, type)] if (num, type) in self._messages else None)
+                #print('Factory::parseMessage: pmsg: %s' % (pmsg), file=sys.stderr)
                 self._messages[(num, type)] = pmsg
                 if callable(self._callback):
                     self._callback(pmsg)

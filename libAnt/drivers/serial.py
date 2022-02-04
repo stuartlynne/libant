@@ -1,6 +1,6 @@
 from queue import Queue
 from threading import Thread, Event
-
+import sys
 from serial import Serial
 from serial import SerialTimeoutException, SerialException
 
@@ -44,6 +44,7 @@ class SerialDriver(Driver):
         return self._serial.read(count)
 
     def _write(self, data: bytes) -> None:
+        print('Serial::write timeout: %s' % (timeout), file=sys.stderr)
         try:
             self._serial.write(data)
             self._serial.flush()

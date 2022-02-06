@@ -1,10 +1,14 @@
 from queue import Queue
 from threading import Event, Thread
 import sys
-from usb import USBError, ENDPOINT_OUT, ENDPOINT_IN
-from usb.control import get_interface
-from usb.core import find
-from usb.util import find_descriptor, endpoint_direction, release_interface, claim_interface, dispose_resources
+try:
+    from usb import USBError, ENDPOINT_OUT, ENDPOINT_IN
+    from usb.control import get_interface
+    from usb.core import find
+    from usb.util import find_descriptor, endpoint_direction, release_interface, claim_interface, dispose_resources
+except:
+    print('Import USB failed, is pyusb installed?', file=sys.stderr)
+    exit(1)
 
 from libAnt.drivers.driver import Driver, DriverException
 from libAnt.loggers.logger import Logger

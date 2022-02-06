@@ -60,7 +60,7 @@ class Pump(threading.Thread):
                             self._waiters.append(outMsg)
                             d.write(outMsg)
                         except Empty:
-                            print('Pump::run: Empty', file=sys.stderr)
+                            #print('Pump::run: Empty', file=sys.stderr)
                             pass
 
                         # Read
